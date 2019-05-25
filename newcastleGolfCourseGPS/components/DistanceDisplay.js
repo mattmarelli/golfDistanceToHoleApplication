@@ -2,6 +2,8 @@ import React, {Component} from 'react';
 import {Platform, StyleSheet, Text, View, TouchableOpacity} from 'react-native';
 import console from 'console';
 import data from '../holeData/allCourses.json'
+
+
 // import * as RNFS from 'react-native-fs'
 
 class DistanceDisplay extends Component {
@@ -20,14 +22,8 @@ class DistanceDisplay extends Component {
         this.updateDistance = this.updateDistance.bind(this);
         this.geoSucess = this.geoSucess.bind(this);
         this.geoFailure = this.geoFailure.bind(this);
-    }
-
-    componentWillMount() {
-        // var filePath = '../holeData/' + String(this.state.courseName) + '.csv'
-        // var reader = new FileReader()
-        // reader.readAsText(filePath)
-        // RNFS.readFile(filePath, 'utf-8')
-        // console.log(filePath)
+        this.calculateDistance = this.calculateDistance.bind(this);
+        this.deg2rad = this.deg2rad.bind(this);
     }
 
     componentDidMount() {
@@ -40,10 +36,6 @@ class DistanceDisplay extends Component {
         navigator.geolocation.getCurrentPosition(this.geoSucess, this.geoFailure, geoOptions)
         this.watchID = navigator.geolocation.watchPosition(this.geoSucess, this.geoFailure, geoOptions)
         this.updateDistance(1, 0)
-        // var filePath = '../holeData/' + String(this.state.courseName) + '.json'
-        // var data = require('../holeData/' + String(this.state.courseName) + '.json')
-        
-        // reader.readAsText(blob)
     }
 
     geoSucess = (position) => {
@@ -65,17 +57,51 @@ class DistanceDisplay extends Component {
         navigator.geolocation.clearWatch(this.watchID)
     }
 
+    deg2rad(deg) {
+        return deg * (Math.PI/180)
+      }
+
+    calculateDistance(greenLocation) {
+        var lat1 = this.state.where.lat
+        var lon1 = this.state.where.long
+        if (greenLocation.length == 23) {
+            var lat2 = Number(greenLocation.substring(1,10))
+            var lon2 = Number(greenLocation.substring(11,22))
+        } else {
+            var lat2 = Number(greenLocation.substring(2,11))
+            var lon2 = Number(greenLocation.substring(12,23))
+        }
+
+        var R = 6371; // Radius of the earth in km
+        var dLat = this.deg2rad(lat2-lat1);  // deg2rad below
+        var dLon = this.deg2rad(lon2-lon1); 
+        var a = 
+          Math.sin(dLat/2) * Math.sin(dLat/2) +
+          Math.cos(this.deg2rad(lat1)) * Math.cos(this.deg2rad(lat2)) * 
+          Math.sin(dLon/2) * Math.sin(dLon/2)
+          ; 
+        var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+        var d = R * c; // Distance in km
+        return d * 1093.6133;  //Distance in yards being returned
+    }
     // method is not correct need to change once I get the gps locations and hole locations
     updateDistance(currentHole, nextUse) {
 
-        holeData1 = data.courseInformation
-        holeInformation = holeData1[this.state.courseName]
+        var holeData1 = data.courseInformation
+        var holeInformation = holeData1[this.state.courseName]
         holeInformation = holeInformation[currentHole + nextUse]
+        var splitData = holeInformation.split('+')
+        var frontLocation = splitData[0]
+        var middleLocation = splitData[1]
+        var backLocation = splitData[2]
+        var distanceToFrontGreen = this.calculateDistance(frontLocation)
+        var distanceToMiddleGreen = this.calculateDistance(middleLocation)
+        var distanceToBackGreen = this.calculateDistance(backLocation)
         this.setState({
             holeData: holeInformation, 
-            distanceToBack: currentHole + nextUse,
-            distanceToFront: currentHole + nextUse,
-            distanceToMiddle: currentHole + nextUse,
+            distanceToFront: distanceToFrontGreen,
+            distanceToMiddle: distanceToMiddleGreen,
+            distanceToBack: distanceToBackGreen,
         })
     }
 
